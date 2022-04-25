@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 import pyproj, shapefile, shapely.geometry, sys
 import os
 
+
 class View(QGraphicsView):
     
     projections = {
@@ -18,6 +19,7 @@ class View(QGraphicsView):
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
         self.setRenderHint(QPainter.Antialiasing)
         self.ratio, self.offset, self.proj = 1/1000, (-13000, 3000), 'mercator'
+        self.lon, self.lat = 0, 0
         self.scale(.2, .2)
 
     def wheelEvent(self, event):
@@ -26,8 +28,8 @@ class View(QGraphicsView):
         
     def mousePressEvent(self, event):
         pos = self.mapToScene(event.pos())
-        print(*self.to_geographical_coordinates(pos.x(), pos.y()))
-                
+        lon, lat = self.to_geographical_coordinates(pos.x(), pos.y())
+
     def to_geographical_coordinates(self, x, y):
         px, py = (x - self.offset[0])/self.ratio, (self.offset[1] - y)/self.ratio
         return self.projections[self.proj](px, py, inverse=True)
@@ -77,15 +79,23 @@ class View(QGraphicsView):
 class PyQTGISS(QMainWindow):
     def __init__(self):
         super().__init__()
+
+        self.setWindowTitle('MeteInfo')
+        self.setWindowIcon(QIcon(os.path.dirname(os.path.realpath(__file__)) + os.path.sep + '/icon/ship_small.ico'))
+        self.view = View(self)
         central_widget = QWidget(self)
         self.setCentralWidget(central_widget)
-        self.setWindowTitle('MeteInfo')
+        layout = QGridLayout(central_widget)
+        layout.addWidget(self.view, 0, 0)
+
+        self.init_shapefile()
         self.tool_bar()
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        self.setWindowIcon(QIcon(script_dir + os.path.sep + '/icon/ship_small.ico'))
+        self.status_bar()
+        self.menu_bar()
 
+
+    def menu_bar(self):
         menu_bar = self.menuBar()
-
         file_menu = QMenu('文件', self)
         menu_bar.addMenu(file_menu)
         import_shapefile = QAction('导入数据', self)
@@ -110,14 +120,14 @@ class PyQTGISS(QMainWindow):
         help_menu = QMenu('帮助', self)
         menu_bar.addMenu(help_menu)
 
-        self.view = View(self)
-        self.init_shapefile()
-        layout = QGridLayout(central_widget)
-        layout.addWidget(self.view, 0, 0)
+    def status_bar(self):
+        # lon = self.view().lon
+        # lat = self.view().lat
+        # self.statusBar.showMessage(lon)
+        pass
 
     def tool_bar(self):
         self.toolbar = self.addToolBar('文件')
-
         script_dir = os.path.dirname(os.path.realpath(__file__))
         open_act = QAction(QIcon(script_dir + os.path.sep + '/icon/open.ico'), '打开', self)
         open_act.triggered.connect(self.import_shapefile)
