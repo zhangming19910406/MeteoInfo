@@ -3,6 +3,7 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 import pyproj, shapefile, shapely.geometry, sys
 import os
+import math
 
 
 class View(QGraphicsView):
@@ -14,18 +15,33 @@ class View(QGraphicsView):
     
     def __init__(self, parent):
         super().__init__()
+        self.setCacheMode(self.CacheBackground)
+        self.setDragMode(self.ScrollHandDrag)
+        self.setResizeAnchor(self.AnchorViewCenter)
+        self.setTransformationAnchor(self.AnchorUnderMouse)
+        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
+
+        self.setRenderHint(QPainter.Antialiasing)
         self.scene = QGraphicsScene(self)
         self.setScene(self.scene)
-        self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
-        self.setRenderHint(QPainter.Antialiasing)
-        self.ratio, self.offset, self.proj = 1/1000, (-13000, 3000), 'mercator'
-        self.lon, self.lat = 0, 0
-        self.scale(.2, .2)
+        self.ratio = 1/100
+        self.offset = (-13000, 3000)
+        self.offset = (0, 0)
+        self.proj = 'mercator'
+        self.scale(.02, .02)
+        self.init_map()
 
     def wheelEvent(self, event):
-        factor = 1.05 if event.angleDelta().y() > 0 else 0.95
-        self.scale(factor, factor)
-        
+        if event.modifiers() & Qt.ControlModifier:
+            self.scale_view(math.pow(2.0, -event.angleDelta().y()/240.0))
+            return event.accept()
+
+    def scale_view(self, scale_factor):
+        factor = self.transform().scale(scale_factor, scale_factor).mapRect(QRectF(0, 0, 1, 1)).width()
+        if factor < 0.007 or factor > 1:
+            return
+        self.scale(scale_factor, scale_factor)
+
     def mousePressEvent(self, event):
         pos = self.mapToScene(event.pos())
         lon, lat = self.to_geographical_coordinates(pos.x(), pos.y())
@@ -38,8 +54,57 @@ class View(QGraphicsView):
         px, py = self.projections[self.proj](longitude, latitude)
         return px*self.ratio + self.offset[0], -py*self.ratio + self.offset[1]
 
+    def init_map(self):
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
+        polygons = sf.shapes()
+        for polygon in polygons:
+            polygon = shapely.geometry.shape(polygon)
+            if polygon.geom_type == 'Polygon':
+                polygon = [polygon]
+            for land in polygon:
+                qt_polygon = QPolygonF()
+                for lon, lat in land.exterior.coords:
+                    if lat < -80:
+                        continue
+                    px, py = self.to_canvas_coordinates(lon, lat)
+                    if px > 1e+10:
+                        continue
+                    qt_polygon.append(QPointF(px, py))
+                polygon_item = QGraphicsPolygonItem(qt_polygon)
+                polygon_item.setBrush(QBrush(QColor(200, 200, 200)))
+                polygon_item.setZValue(1)
+                self.scene.addItem(polygon_item)
+
+    # This is init map for try, it is wrong!
+    def init_map_try(self):
+        script_dir = os.path.dirname(os.path.realpath(__file__))
+        sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
+        polygons = sf.shapes()
+
+        new_polygon = []
+        for polygon in polygons:
+            temp = shapely.geometry.shape(polygon)
+            _type = temp.geom_type
+            # if _type == "Polygon":
+            new_polygon.append(temp)
+        for land in new_polygon:
+            qt_polygon = QPolygonF()
+            for lat, lon in land.exterior.coords:
+                if lat < -80:
+                    continue
+                px, py = self.to_canvas_coordinates(lon, lat)
+                if px > 1e+10:
+                    continue
+                qt_polygon.append(QPointF(lon, lat))
+                # qt_polygon.append(QPointF(px, py))
+            polygon_item = QGraphicsPolygonItem(qt_polygon)
+            polygon_item.setBrush(QBrush(QColor(200, 200, 200)))
+            polygon_item.setZValue(1)
+            self.scene.addItem(polygon_item)
+
     def draw_polygons(self):
-        sf = shapefile.Reader(self.shapefile)       
+        sf = shapefile.Reader(self.shapefile)
         polygons = sf.shapes() 
         for polygon in polygons:
             polygon = shapely.geometry.shape(polygon)
@@ -88,7 +153,6 @@ class PyQTGISS(QMainWindow):
         layout = QGridLayout(central_widget)
         layout.addWidget(self.view, 0, 0)
 
-        self.init_shapefile()
         self.tool_bar()
         self.status_bar()
         self.menu_bar()
@@ -162,11 +226,6 @@ class PyQTGISS(QMainWindow):
         exit_act.triggered.connect(qApp.quit)
         exit_act.setShortcut('Ctrl+Q')
         self.toolbar.addAction(exit_act)
-
-    def init_shapefile(self):
-        script_dir = os.path.dirname(os.path.realpath(__file__))
-        self.view.shapefile = script_dir + '/data/ne_50m_admin_0_countries.shp'
-        self.view.redraw_map()
 
     def import_shapefile(self):
         self.view.shapefile = QFileDialog.getOpenFileName(self, 'Import')[0]
