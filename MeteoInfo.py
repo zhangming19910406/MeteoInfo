@@ -55,6 +55,7 @@ class View(QGraphicsView):
         px, py = self.projections[self.proj](longitude, latitude)
         return px*self.ratio + self.offset[0], -py*self.ratio + self.offset[1]
 
+    # This is a new init map function, we have a new.
     def init_map_old(self):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
@@ -78,7 +79,6 @@ class View(QGraphicsView):
                 polygon_item.setPos(0, 0)
                 self.scene.addItem(polygon_item)
 
-    # This is init map for try, it is wrong!
     def init_map(self):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
