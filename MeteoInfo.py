@@ -18,7 +18,8 @@ class View(QGraphicsView):
         super().__init__()
         self.setCacheMode(self.CacheBackground)
         self.setDragMode(self.ScrollHandDrag)
-        self.setResizeAnchor(self.AnchorViewCenter)
+        self.setResizeAnchor(self.AnchorUnderMouse)
+        self.setRubberBandSelectionMode(Qt.IntersectsItemShape)
         self.setTransformationAnchor(self.AnchorUnderMouse)
         self.setTransformationAnchor(QGraphicsView.AnchorUnderMouse)
 
@@ -33,7 +34,7 @@ class View(QGraphicsView):
         self.init_map()
 
     def wheelEvent(self, event):
-        if event.modifiers() & Qt.ControlModifier:
+         if event.modifiers() & Qt.ControlModifier:
             self.scale_view(math.pow(2.0, -event.angleDelta().y()/240.0))
             return event.accept()
 
@@ -43,9 +44,9 @@ class View(QGraphicsView):
             return
         self.scale(scale_factor, scale_factor)
 
-    def mousePressEvent(self, event):
-        pos = self.mapToScene(event.pos())
-        lon, lat = self.to_geographical_coordinates(pos.x(), pos.y())
+    # def mousePressEvent(self, event):
+    #     pos = self.mapToScene(event.pos())
+    #     lon, lat = self.to_geographical_coordinates(pos.x(), pos.y())
 
     def to_geographical_coordinates(self, x, y):
         px, py = (x - self.offset[0])/self.ratio, (self.offset[1] - y)/self.ratio
@@ -125,7 +126,7 @@ class View(QGraphicsView):
                         continue
                     qt_polygon.append(QPointF(px, py))
                 polygon_item = QGraphicsPolygonItem(qt_polygon)
-                polygon_item.setBrush(QBrush(QColor(200, 200, 200)))
+                polygon_item.setBrush(QBrush(QColor(100, 200, 200)))
                 polygon_item.setZValue(1)
                 yield polygon_item
                 
