@@ -1,4 +1,5 @@
 from PyQt5.QtCore import *
+
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 import pyproj, shapefile, shapely.geometry, sys
@@ -54,7 +55,7 @@ class View(QGraphicsView):
         px, py = self.projections[self.proj](longitude, latitude)
         return px*self.ratio + self.offset[0], -py*self.ratio + self.offset[1]
 
-    def init_map(self):
+    def init_map_old(self):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
         polygons = sf.shapes()
@@ -74,30 +75,34 @@ class View(QGraphicsView):
                 polygon_item = QGraphicsPolygonItem(qt_polygon)
                 polygon_item.setBrush(QBrush(QColor(200, 200, 200)))
                 polygon_item.setZValue(1)
+                polygon_item.setPos(0, 0)
                 self.scene.addItem(polygon_item)
 
     # This is init map for try, it is wrong!
-    def init_map_try(self):
+    def init_map(self):
         script_dir = os.path.dirname(os.path.realpath(__file__))
         sf = shapefile.Reader(script_dir + '/data/ne_50m_admin_0_countries.shp')
-        polygons = sf.shapes()
+        kinds_of_polygons = sf.shapes()
 
-        new_polygon = []
-        for polygon in polygons:
-            temp = shapely.geometry.shape(polygon)
-            _type = temp.geom_type
-            # if _type == "Polygon":
-            new_polygon.append(temp)
-        for land in new_polygon:
+        sample_polygons = []
+        for kinds_of_polygon in kinds_of_polygons:
+            kinds_of_polygon = shapely.geometry.shape(kinds_of_polygon)
+            _type = kinds_of_polygon.geom_type
+            if _type == "Polygon":
+                sample_polygons.append(kinds_of_polygon)
+            elif _type == "MultiPolygon":
+                for polygon in kinds_of_polygon.geoms:
+                    sample_polygons.append(polygon)
+
+        for land in sample_polygons:
             qt_polygon = QPolygonF()
-            for lat, lon in land.exterior.coords:
+            for lon, lat in land.exterior.coords:
                 if lat < -80:
                     continue
                 px, py = self.to_canvas_coordinates(lon, lat)
                 if px > 1e+10:
                     continue
-                qt_polygon.append(QPointF(lon, lat))
-                # qt_polygon.append(QPointF(px, py))
+                qt_polygon.append(QPointF(px, py))
             polygon_item = QGraphicsPolygonItem(qt_polygon)
             polygon_item.setBrush(QBrush(QColor(200, 200, 200)))
             polygon_item.setZValue(1)
